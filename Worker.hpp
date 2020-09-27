@@ -36,6 +36,12 @@ public:
     /** @brief Stop and join the worker */
     ~Worker(void);
 
+    /** @brief Start the worker */
+    void start(void);
+
+    /** @brief Stop the worker */
+    void stop(void);
+
     /** @brief Get internal state of worker */
     [[nodiscard]] State state(void) noexcept { return _state.load(); }
 
@@ -49,7 +55,7 @@ private:
         std::thread thd {};
     };
 
-    KF_ALIGN_CACHELINE std::atomic<State> _state { State::Waiting };
+    KF_ALIGN_CACHELINE std::atomic<State> _state { State::Stopped };
     KF_ALIGN_CACHELINE Cache _cache {};
     Core::SPSCQueue<Task *> _queue;
 

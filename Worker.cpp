@@ -10,14 +10,29 @@ using namespace kF;
 Flow::Worker::Worker(Scheduler * const parent, const std::size_t queueSize)
     : _cache(Cache {
         parent: parent,
-        thd: std::thread([this] { run(); })
+        thd: std::thread()
     }),
     _queue(queueSize, false)
 {
-
+    start();
 }
 
 Flow::Worker::~Worker(void)
+{
+    stop();
+}
+
+void Flow::Worker::start(void)
+{
+    const auto state = _state.load();
+
+    if (state != Stopped)
+        return;
+    _state = State::Waiting;
+    _cache.thd = std::thread([this] { run(); });
+}
+
+void Flow::Worker::stop(void)
 {
     if (auto currentState = state(); currentState != State::Stop && currentState != State::Stopped)
         while (!_state.compare_exchange_strong(currentState, State::Stop));

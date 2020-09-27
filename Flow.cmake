@@ -7,6 +7,7 @@ set(KubeFlowSources
     ${KubeFlowDir}/Scheduler.cpp
     ${KubeFlowDir}/Task.hpp
     ${KubeFlowDir}/Task.cpp
+    ${KubeFlowDir}/Task.ipp
     ${KubeFlowDir}/Worker.hpp
     ${KubeFlowDir}/Worker.cpp
 )

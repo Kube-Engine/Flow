@@ -41,20 +41,22 @@ public:
     };
 
     /** @brief Default constructor */
-    Task(void) = default;
+    Task(void) noexcept = default;
 
     /** @brief Default copy constructor */
-    Task(const Task &other) = default;
+    Task(const Task &other) noexcept = default;
 
     /** @brief Default move constructor */
-    Task(Task &&other) = default;
+    Task(Task &&other) noexcept = default;
 
     /** @brief Emplace constructor */
-    template<typename ...Args>
-    Task(Args &&...args) noexcept { emplace(std::forward<Args>(args)...); }
+    template<typename Work>
+    Task(Work &&workFunc, std::string &&name = std::string()) noexcept : Task(std::forward<Work>(workFunc), NotifyFunc(), std::move(name)) {}
+    template<typename Work, typename Notify>
+    Task(Work &&workFunc, Notify &&notifyFunc, std::string &&name = std::string()) noexcept : _workFunc(std::forward<Work>(workFunc)), _notifyFunc(std::forward<Notify>(notifyFunc)), _name(std::move(name)) {}
 
     /** @brief Default destructor */
-    ~Task(void) = default;
+    ~Task(void) noexcept = default;
 
     /** @brief Copy assignment */
     Task &operator=(const Task &other) noexcept = default;
@@ -85,17 +87,13 @@ public:
     [[nodiscard]] Tasks &children(void) noexcept { return _children; }
     [[nodiscard]] const Tasks &children(void) const noexcept { return _children; }
 
-    /** @brief Emplace a node in this instance */
-    template<typename ...Args>
-    void emplace(Args &&...args) noexcept { emplace(std::forward<Args>(args)...); }
-    void emplace(WorkFunc &&workFunc) noexcept { emplace(std::move(workFunc), NotifyFunc(), std::string()); }
-    void emplace(WorkFunc &&workFunc, std::string &&name) noexcept { emplace(std::move(workFunc), NotifyFunc(), std::move(name)); }
-    void emplace(WorkFunc &&workFunc, NotifyFunc &&notifyFunc) noexcept { emplace(std::move(workFunc), std::move(notifyFunc), std::string()); }
-    void emplace(WorkFunc &&workFunc, NotifyFunc &&notifyFunc, std::string &&name) noexcept { _workFunc = std::move(workFunc); _notifyFunc = std::move(_notifyFunc); _name = std::move(name); }
-
 private:
     WorkFunc _workFunc {};
     Tasks _children {};
     NotifyFunc _notifyFunc {};
     std::string _name {};
 };
+
+static_assert(sizeof(kF::Flow::Task) == kF::Core::Utils::CacheLineSize * 2);
+
+#include "Task.ipp"

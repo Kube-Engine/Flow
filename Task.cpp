@@ -21,6 +21,8 @@ void Flow::Task::work(Scheduler * const parent)
         std::get<static_cast<std::size_t>(Type::Dynamic)>(_workFunc)(42);
         break;
     case Type::Condition:
+        kFAssert(_children.size() == 2,
+            throw std::logic_error("Invalid condition task children count"));
         if (std::get<static_cast<std::size_t>(Type::Condition)>(_workFunc)())
             parent->schedule(&_children[0]);
         else
