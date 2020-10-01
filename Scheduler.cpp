@@ -23,23 +23,23 @@ Flow::Scheduler::~Scheduler(void)
 
 }
 
-void Flow::Scheduler::schedule(Task * const task) noexcept
+Flow::Task Flow::Scheduler::trySteal(void) noexcept
 {
-    do {
-        if (++_cache.lastWorkerId >= _cache.workers.size()) [[unlikely]]
-            _cache.lastWorkerId = 0;
-    } while (!_cache.workers[_cache.lastWorkerId].push(task));
+    return Task();
 }
 
-Flow::Task *Flow::Scheduler::trySteal(void) noexcept
+void Flow::Scheduler::wait(void) noexcept
 {
-    return nullptr;
-}
-
-void Flow::Scheduler::processNotifications(void)
-{
-    Task *task;
-
-    while (_notifications.pop(task))
-        task->notify();
+    while (true) {
+        {
+            auto count = workerCount();
+            for (auto &worker : _cache.workers) {
+                if (worker.state() == Worker::State::Waiting && !worker.taskCount())
+                    --count;
+            }
+            if (!count)
+                return;
+        }
+        std::this_thread::yield();
+    }
 }

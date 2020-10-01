@@ -42,7 +42,7 @@ void Flow::Worker::stop(void)
 
 void Flow::Worker::run(void) noexcept
 {
-    Task *task = nullptr;
+    Task task;
     State current;
 
     while (true) {
@@ -73,11 +73,11 @@ void Flow::Worker::run(void) noexcept
     }
 }
 
-void kF::Flow::Worker::work(Task * const task) noexcept
+void kF::Flow::Worker::work(Task &task) noexcept
 {
     try {
-        task->work(_cache.parent);
-        if (task->hasNotification())
+        task.work(_cache.parent);
+        if (task.hasNotification())
             while (!_cache.parent->notify(task))
                 std::this_thread::yield();
     } catch (const std::exception &e) {

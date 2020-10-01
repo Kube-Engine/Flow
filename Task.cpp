@@ -11,28 +11,34 @@ using namespace kF;
 
 void Flow::Task::work(Scheduler * const parent)
 {
+    constexpr auto scheduleNode = [](Scheduler * const parent, Node * const link) {
+        if (const auto count = link->linkedFrom.size(); count && count == ++link->joined) {
+            link->joined = 0;
+            parent->schedule(link);
+        }
+    };
+
     switch (type()) {
-    case Type::Static:
-        std::get<static_cast<std::size_t>(Type::Static)>(_workFunc)();
-        for (auto &child : _children)
-            parent->schedule(&child);
+    case Node::Type::Static:
+        std::get<static_cast<std::size_t>(Node::Type::Static)>(_node->workData)();
+        for (Node * const link : _node->linkedTo)
+            scheduleNode(parent, link);
+        root()->childJoined();
         break;
-    case Type::Dynamic:
-        std::get<static_cast<std::size_t>(Type::Dynamic)>(_workFunc)(42);
+    case Node::Type::Dynamic:
+        std::get<static_cast<std::size_t>(Node::Type::Dynamic)>(_node->workData)(42);
+        root()->childJoined();
         break;
-    case Type::Condition:
-        kFAssert(_children.size() == 2,
-            throw std::logic_error("Invalid condition task children count"));
-        if (std::get<static_cast<std::size_t>(Type::Condition)>(_workFunc)())
-            parent->schedule(&_children[0]);
-        else
-            parent->schedule(&_children[1]);
-        break;
-    case Type::Switch:
-        const auto index = std::get<static_cast<std::size_t>(Type::Condition)>(_workFunc)();
-        kFAssert(index >= 0 && index < _children.size(),
+    case Node::Type::Switch:
+        const auto index = std::get<static_cast<std::size_t>(Node::Type::Switch)>(_node->workData)();
+        const auto count = _node->linkedTo.size();
+        kFAssert(index >= 0 && index < count,
             throw std::logic_error("Invalid switch task return index"));
-        parent->schedule(&_children[index]);
+        scheduleNode(parent, _node->linkedTo[index]);
+        root()->childrenJoined(count);
         break;
+    // case Node::Type::Graph:
+    //     // const auto graph = std::get<static_cast<std::size_t>(Node::Type::Graph)>(_node->workData);
+    //     parent->schedule(graph);
     }
 }

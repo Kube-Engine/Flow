@@ -15,16 +15,21 @@
 namespace kF::Flow
 {
     class Scheduler;
-
-    using Workers = Core::HeapArray<Worker>;
 };
 
 class KF_ALIGN_CACHELINE2 kF::Flow::Scheduler
 {
 public:
+    /** @brief Use this variable to automatically detect hardware thread count */
     static constexpr std::size_t AutoWorkerCount { 0ul };
+
+    /** @brief This variable is used on hardware thread detection failure */
     static constexpr std::size_t DefaultWorkerCount { 4ul };
+
+    /** @brief Default queue size of tasks */
     static constexpr std::size_t DefaultTaskQueueSize { 4096ul };
+
+    /** @brief Default queue size of notifications */
     static constexpr std::size_t DefaultNotificationQueueSize { 4096ul };
 
     /** @brief Construct a set of workers */
@@ -33,17 +38,23 @@ public:
     /** @brief Destroy and join all workers */
     ~Scheduler(void);
 
-    /** @brief Schedule a set of tasks */
-    void schedule(Task * const task) noexcept;
+    /** @brief Schedule a graph of tasks */
+    void schedule(Graph &task) noexcept_ndebug;
+
+    /** @brief Schedule a task */
+    void schedule(const Task task) noexcept;
 
     /** @brief Tries to steal a task from a busy worker (only used by workers) */
-    [[nodiscard]] Task *trySteal(void) noexcept;
+    [[nodiscard]] Task trySteal(void) noexcept;
 
     /** @brief Tries to add a notification task to be executed on the event processing thread */
-    [[nodiscard]] bool notify(Task * const task) noexcept { return _notifications.push(task); }
+    [[nodiscard]] bool notify(const Task task) noexcept { return _notifications.push(task); }
 
     /** @brief Process all pending notifications on the current thread */
-    void processNotifications(void);
+    void processNotifications(void) { for (Task task; _notifications.pop(task); task.notify()); }
+
+    /** @brief All job to be terminated */
+    void wait(void) noexcept;
 
     /** @brief Get the count of worker */
     [[nodiscard]] std::size_t workerCount(void) const noexcept { return _cache.workers.size(); }
@@ -51,10 +62,12 @@ public:
 private:
     struct Cache
     {
-        Workers workers {};
+        Core::HeapArray<Worker> workers {};
         std::size_t lastWorkerId { 0 };
     };
 
     KF_ALIGN_CACHELINE2 Cache _cache;
-    Core::MPMCQueue<Task *> _notifications;
+    Core::MPMCQueue<Task> _notifications;
 };
+
+#include "Scheduler.ipp"

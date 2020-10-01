@@ -5,11 +5,16 @@ get_filename_component(KubeFlowDir ${CMAKE_CURRENT_LIST_FILE} PATH)
 set(KubeFlowSources
     ${KubeFlowDir}/Scheduler.hpp
     ${KubeFlowDir}/Scheduler.cpp
+    ${KubeFlowDir}/Scheduler.ipp
+    ${KubeFlowDir}/Worker.hpp
+    ${KubeFlowDir}/Worker.cpp
+    ${KubeFlowDir}/Graph.hpp
+    ${KubeFlowDir}/Graph.ipp
+    ${KubeFlowDir}/Graph.cpp
     ${KubeFlowDir}/Task.hpp
     ${KubeFlowDir}/Task.cpp
     ${KubeFlowDir}/Task.ipp
-    ${KubeFlowDir}/Worker.hpp
-    ${KubeFlowDir}/Worker.cpp
+    ${KubeFlowDir}/Node.hpp
 )
 
 add_library(${PROJECT_NAME} ${KubeFlowSources})

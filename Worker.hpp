@@ -46,7 +46,9 @@ public:
     [[nodiscard]] State state(void) noexcept { return _state.load(); }
 
     /** @brief Push a task to be processed on the worker thread */
-    [[nodiscard]] bool push(Task * const task) noexcept { return _queue.push(task); }
+    [[nodiscard]] bool push(const Task task) noexcept { return _queue.push(task); }
+
+    [[nodiscard]] std::size_t taskCount(void) const noexcept { return _queue.size(); }
 
 private:
     struct Cache
@@ -57,13 +59,13 @@ private:
 
     KF_ALIGN_CACHELINE std::atomic<State> _state { State::Stopped };
     KF_ALIGN_CACHELINE Cache _cache {};
-    Core::SPSCQueue<Task *> _queue;
+    Core::SPSCQueue<Task> _queue;
 
     /** @brief Busy loop */
     void run(void) noexcept;
 
     /** @brief Execute a task */
-    void work(Task * const task) noexcept;
+    void work(Task &task) noexcept;
 };
 
 static_assert(sizeof(kF::Flow::Worker) == 6 * kF::Core::Utils::CacheLineSize, "Worker is not padded correctly");
