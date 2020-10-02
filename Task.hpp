@@ -10,7 +10,6 @@
 namespace kF::Flow
 {
     class Task;
-    class Scheduler;
 }
 
 /**
@@ -52,8 +51,9 @@ public:
     /** @brief Retreive the type of the task */
     [[nodiscard]] Node::Type type(void) const noexcept { return static_cast<Node::Type>(_node->workData.index()); }
 
-    /** @brief Execute the task */
-    void work(Scheduler * const parent);
+    /** @brief Set the work event */
+    template<typename Work>
+    void setWork(Work &&work) noexcept { _node->workData = Node::ForwardWorkData(std::forward<Work>(work)); }
 
     /** @brief Check if the Task has a notification event */
     [[nodiscard]] bool hasNotification(void) const noexcept { return _node->notifyFunc.operator bool(); }
@@ -72,8 +72,11 @@ public:
     [[nodiscard]] std::string_view name(void) const noexcept { return _node->name.toStdView(); }
     void setName(const std::string_view &name) noexcept { _node->name = name; }
 
-    /** @brief Add children task */
+    /** @brief Add a task linked to this instance */
     Task &precede(Task &task) noexcept;
+
+    /** @brief Add a task linked from this instance */
+    Task &succeed(Task &task) noexcept { task.precede(*this); return *this; }
 
 private:
     Node *_node { nullptr };

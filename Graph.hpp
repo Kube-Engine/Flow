@@ -27,6 +27,7 @@ public:
         std::atomic<bool> repeat { false }; // True if the graph should repeat indefinitly
         std::atomic<bool> running { false }; // True if the graph is already processing
     };
+    using DataPtr = std::shared_ptr<Data>;
 
     /** @brief Default construtor */
     Graph(void) noexcept = default;
@@ -40,11 +41,17 @@ public:
     /** @brief Destructor */
     ~Graph(void) noexcept_destructible(Data);
 
+    /** @brief Copy assignment */
+    Graph &operator=(const Graph &other) noexcept_copy_constructible(DataPtr) = default;
+
+    /** @brief Move assignment */
+    Graph &operator=(Graph &&other) noexcept_move_constructible(DataPtr) = default;
+
     /** @brief Fast check */
     operator bool(void) const noexcept { return _data.operator bool(); }
 
     /** @brief Swap two graph */
-    void swap(Graph &other) noexcept { std::swap(_data, other._data); }
+    void swap(Graph &other) noexcept { _data.swap(other._data); }
 
     /** @brief Construct an instance if not already done */
     void construct(void) noexcept;
@@ -57,7 +64,7 @@ public:
     [[nodiscard]] std::size_t joined(void) const noexcept { return _data->joined.load(std::memory_order_seq_cst); }
 
     /** @brief Callback that increment join count (to know when graph is done) */
-    void childJoined(void) noexcept;
+    void childJoined(void) noexcept { childrenJoined(1); }
     void childrenJoined(const std::size_t childrenJoined) noexcept;
 
     /** @brief Get / Set the running property */
@@ -65,15 +72,11 @@ public:
     void setRunning(const bool running) noexcept { return _data->running.store(running, std::memory_order_seq_cst); }
 
     /** @brief Emplace a node in the graph */
-    template<typename ...Args, std::enable_if_t<std::is_constructible_v<Node, Args...>, void>* = nullptr>
-    Task emplace(Args &&...args) noexcept_constructible(Node, Args...);
+    template<typename ...Args>
+    Task emplace(Args &&...args);
 
     /** @brief Wait for the graph to be executed */
     void wait(void) noexcept_ndebug;
-
-    // template<typename ...Args, std::enable_if_t<!std::is_constructible_v<Node, Args...>, void>* = nullptr>
-    // Task emplace(Args &&...args) noexcept_constructible(Node, Args...)
-    //     { return Task(&_data->children.emplace_back(std::forward<Args>(args)...)); }
 
     /** @brief Clear the graph children */
     void clear(void) noexcept_destructible(Node);
@@ -86,7 +89,7 @@ public: // Reserved for internal uses
     [[nodiscard]] auto end(void) const noexcept { return _data->children.end(); }
 
 private:
-    std::shared_ptr<Data> _data {};
+    DataPtr _data {};
 };
 
 #include "Graph.ipp"

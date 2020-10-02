@@ -129,14 +129,44 @@ TEST(Scheduler, SwitchTask)
     auto c = graph.emplace([&trigger] { trigger = 2; });
     auto d = graph.emplace([&trigger] { trigger = 3; });
     auto e = graph.emplace([&trigger] { trigger = 4; });
-    a.precede(b); // 0 returned
-    a.precede(c); // 1 returned
-    a.precede(d); // 2 returned
-    a.precede(e); // 3 returned
+    b.succeed(a); // 0 returned
+    c.succeed(a); // 1 returned
+    d.succeed(a); // 2 returned
+    e.succeed(a); // 3 returned
 
     for (auto i = 1; i <= 4; ++i) {
         scheduler.schedule(graph);
         graph.wait();
         ASSERT_EQ(trigger, i);
     }
+}
+
+TEST(Scheduler, GraphTask)
+{
+    Flow::Scheduler scheduler;
+    int trigger = 0;
+    auto func = [&trigger] { trigger += 1; };
+    auto func2 = [&trigger] { trigger += 2; };
+
+    // Construct sub graph
+    Flow::Graph subGraph;
+    auto a = subGraph.emplace(func);
+    auto b = subGraph.emplace(func2);
+    a.precede(b);
+
+    // Construct graph
+    Flow::Graph graph;
+    auto before = graph.emplace(Flow::EmptyWork, func);
+    auto sub = graph.emplace(subGraph, "SubGraph A");
+    before.precede(sub);
+    auto sub2 = graph.emplace(subGraph, "SubGraph B");
+    sub.precede(sub2);
+    auto after = graph.emplace(Flow::EmptyWork, func2);
+    after.succeed(sub2);
+
+    scheduler.schedule(graph);
+    graph.wait();
+    ASSERT_EQ(trigger, 6);
+    scheduler.processNotifications();
+    ASSERT_EQ(trigger, 9);
 }

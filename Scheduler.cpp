@@ -15,29 +15,41 @@ Flow::Scheduler::Scheduler(const std::size_t workerCount, const std::size_t task
         count = std::thread::hardware_concurrency();
     if (!count)
         count = DefaultWorkerCount;
+    _lastWorkerId = count - 1;
     _cache.workers.allocate(count, this, taskQueueSize);
+    for (auto &worker : _cache.workers)
+        worker.start();
 }
 
 Flow::Scheduler::~Scheduler(void)
 {
-
+    for (auto &worker: _cache.workers)
+        worker.stop();
+    for (auto &worker: _cache.workers)
+        worker.join();
 }
 
-Flow::Task Flow::Scheduler::trySteal(void) noexcept
+bool Flow::Scheduler::steal(Flow::Task &task) noexcept
 {
-    return Task();
+    for (auto &worker : _cache.workers) {
+        if (worker.steal(task))
+            return true;
+    }
+    return false;
 }
 
 void Flow::Scheduler::wait(void) noexcept
 {
+    const auto count = workerCount();
+
     while (true) {
         {
-            auto count = workerCount();
+            auto activeCount = count;
             for (auto &worker : _cache.workers) {
-                if (worker.state() == Worker::State::Waiting && !worker.taskCount())
-                    --count;
+                if (!worker.taskCount())
+                    --activeCount;
             }
-            if (!count)
+            if (!activeCount)
                 return;
         }
         std::this_thread::yield();

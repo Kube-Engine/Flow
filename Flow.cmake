@@ -12,7 +12,6 @@ set(KubeFlowSources
     ${KubeFlowDir}/Graph.ipp
     ${KubeFlowDir}/Graph.cpp
     ${KubeFlowDir}/Task.hpp
-    ${KubeFlowDir}/Task.cpp
     ${KubeFlowDir}/Task.ipp
     ${KubeFlowDir}/Node.hpp
 )

@@ -7,7 +7,6 @@
 
 #include <vector>
 
-#include <Kube/Core/MPMCQueue.hpp>
 #include <Kube/Core/HeapArray.hpp>
 
 #include "Worker.hpp"
@@ -17,6 +16,7 @@ namespace kF::Flow
     class Scheduler;
 };
 
+/** @brief Schedule graph of tasks using thread workers */
 class KF_ALIGN_CACHELINE2 kF::Flow::Scheduler
 {
 public:
@@ -32,26 +32,26 @@ public:
     /** @brief Default queue size of notifications */
     static constexpr std::size_t DefaultNotificationQueueSize { 4096ul };
 
-    /** @brief Construct a set of workers */
+    /** @brief Construct a set of workers and start scheduler */
     Scheduler(const std::size_t workerCount = AutoWorkerCount, const std::size_t taskQueueSize = DefaultTaskQueueSize, const std::size_t notificationQueueSize = DefaultNotificationQueueSize);
 
     /** @brief Destroy and join all workers */
     ~Scheduler(void);
 
     /** @brief Schedule a graph of tasks */
-    void schedule(Graph &task) noexcept_ndebug;
+    void schedule(Graph &task);
 
     /** @brief Schedule a task */
     void schedule(const Task task) noexcept;
 
     /** @brief Tries to steal a task from a busy worker (only used by workers) */
-    [[nodiscard]] Task trySteal(void) noexcept;
+    [[nodiscard]] bool steal(Task &task) noexcept;
 
     /** @brief Tries to add a notification task to be executed on the event processing thread */
     [[nodiscard]] bool notify(const Task task) noexcept { return _notifications.push(task); }
 
     /** @brief Process all pending notifications on the current thread */
-    void processNotifications(void) { for (Task task; _notifications.pop(task); task.notify()); }
+    void processNotifications(void) { for (Task task; _notifications.pop(task); task.node()->notifyFunc()); }
 
     /** @brief All job to be terminated */
     void wait(void) noexcept;
@@ -63,10 +63,10 @@ private:
     struct Cache
     {
         Core::HeapArray<Worker> workers {};
-        std::size_t lastWorkerId { 0 };
     };
 
-    KF_ALIGN_CACHELINE2 Cache _cache;
+    KF_ALIGN_CACHELINE Cache _cache {};
+    KF_ALIGN_CACHELINE std::atomic<std::size_t> _lastWorkerId { 0 };
     Core::MPMCQueue<Task> _notifications;
 };
 

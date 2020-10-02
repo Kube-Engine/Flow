@@ -28,13 +28,17 @@ namespace kF::Flow
 
     /** @brief Notify functor to be called on the event thread */
     using NotifyFunc = std::function<void(void)>;
+
+    /** @brief Variant holding work struct */
+    using WorkData = std::variant<StaticFunc, DynamicFunc, SwitchFunc, Graph *>;
+
+    /** @brief Empty work placeholder */
+    constexpr auto EmptyWork = []{};
 }
 
 /** @brief A node is a POD structure containing all data of a scheduled task in a graph */
 struct KF_ALIGN_CACHELINE kF::Flow::Node
 {
-    /** @brief Variant holding work struct */
-    using WorkData = std::variant<StaticFunc, DynamicFunc, SwitchFunc, Graph*>;
 
     /** @brief Different types of nodes */
     enum class Type : std::size_t {
@@ -57,18 +61,28 @@ struct KF_ALIGN_CACHELINE kF::Flow::Node
 
     /** @brief Construct a node with a work functor */
     template<typename Work>
-    Node(Work &&work, const std::string_view &nodeName = std::string_view()) noexcept
-        : Node(std::forward<Work>(work), NotifyFunc(), nodeName) {}
+    Node(Work &&work) noexcept
+        : workData(ForwardWorkData(std::forward<Work>(work))) {}
+
+    /** @brief Construct a node with a work functor and a name */
+    template<typename Work, typename Literal> requires std::constructible_from<decltype(Node::name), Literal>
+    Node(Work &&work, Literal &&nodeName) noexcept
+        : workData(ForwardWorkData(std::forward<Work>(work))), name(std::forward<Literal>(nodeName)) {}
 
     /** @brief Construct a node with a work and a notification functor */
-    template<typename Work, typename Notify>
-    Node(Work &&work, Notify &&notify, const std::string_view &nodeName = std::string_view()) noexcept
-        : workData(ForwardWorkData(std::forward<Work>(work))), notifyFunc(std::forward<Notify>(notify)), name(nodeName) {}
+    template<typename Work, typename Notify> requires std::constructible_from<NotifyFunc, Notify>
+    Node(Work &&work, Notify &&notify) noexcept
+        : workData(ForwardWorkData(std::forward<Work>(work))), notifyFunc(std::forward<Notify>(notify)) {}
+
+    /** @brief Construct a node with a work and a notification functor and a name */
+    template<typename Work, typename Notify, typename Literal> requires std::constructible_from<decltype(Node::name), Literal>
+    Node(Work &&work, Notify &&notify, Literal &&nodeName) noexcept
+        : workData(ForwardWorkData(std::forward<Work>(work))), notifyFunc(std::forward<Notify>(notify)), name(std::forward<Literal>(nodeName)) {}
 
     /** @brief Default destructor */
     ~Node(void) = default;
 
-private:
+    /** @brief Helper to return the good workdata type from templated one */
     template<typename Work>
     inline static auto ForwardWorkData(Work &&work)
     {
@@ -78,6 +92,8 @@ private:
             return SwitchFunc(std::forward<Work>(work));
         else if constexpr (!std::is_same_v<StaticFunc, Work> && std::is_constructible_v<StaticFunc, Work>)
             return StaticFunc(std::forward<Work>(work));
+        else if constexpr (std::is_same_v<Graph &, Work>)
+            return &work;
         else
             return work;
     }
@@ -93,7 +109,7 @@ public:
 
     /** @brief Allocate constructor */
     template<typename ...Args>
-    NodeInstance(Args &&...args) noexcept_constructible(Node, Args...)
+    NodeInstance(Args &&...args)
         : _node(Allocate(std::forward<Args>(args)...)) {}
 
     /** @brief Move constructor */
@@ -103,8 +119,8 @@ public:
     ~NodeInstance(void) noexcept_destructible(Node) { if (_node) [[likely]] Deallocate(_node); }
 
     /** @brief Get node pointer */
-    Node *node(void) noexcept { return _node; }
-    const Node *node(void) const noexcept { return _node; }
+    [[nodiscard]] Node *node(void) noexcept { return _node; }
+    [[nodiscard]] const Node *node(void) const noexcept { return _node; }
 
     /** @brief Move assignment */
     NodeInstance &operator=(NodeInstance &&other) noexcept { swap(other); return *this; }
@@ -121,13 +137,10 @@ private:
 
     inline static std::pmr::synchronized_pool_resource _Pool {};
 
-    template<typename ...Args> requires std::constructible_from<Node, Args...>
-    inline static Node *Allocate(Args &&...args) noexcept_constructible(Node, Args...)
+    template<typename ...Args>
+    inline static Node *Allocate(Args &&...args)
         { return new (_Pool.allocate(sizeof(Node), alignof(Node))) Node(std::forward<Args>(args)...); }
 
     inline static void Deallocate(Node *node) noexcept_destructible(Node)
-    {
-        node->~Node();
-        return _Pool.deallocate(node, sizeof(Node), alignof(Node));
-    }
+        { node->~Node(); return _Pool.deallocate(node, sizeof(Node), alignof(Node)); }
 };
