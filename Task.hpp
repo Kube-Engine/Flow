@@ -72,6 +72,10 @@ public:
     [[nodiscard]] std::string_view name(void) const noexcept { return _node->name.toStdView(); }
     void setName(const std::string_view &name) noexcept { _node->name = name; }
 
+    /** @brief Get / Set the name property */
+    [[nodiscard]] bool bypass(void) const noexcept { return _node->bypass.load(); }
+    void setBypass(const bool &bypass) noexcept { _node->bypass.store(bypass); }
+
     /** @brief Add a task linked to this instance */
     Task &precede(Task &task) noexcept;
 

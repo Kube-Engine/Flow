@@ -13,6 +13,7 @@
 
 namespace kF::Flow
 {
+    class NodeInstance;
     class Graph;
 }
 
@@ -27,7 +28,13 @@ public:
         std::atomic<bool> repeat { false }; // True if the graph should repeat indefinitly
         std::atomic<bool> running { false }; // True if the graph is already processing
     };
+
+    /** @brief Shared pointer to data structure */
     using DataPtr = std::shared_ptr<Data>;
+
+    /** @brief Children iterator */
+    using Iterator = decltype(Data::children)::iterator;
+    using ConstIterator = decltype(Data::children)::const_iterator;
 
     /** @brief Default construtor */
     Graph(void) noexcept = default;
@@ -78,15 +85,20 @@ public:
     /** @brief Wait for the graph to be executed */
     void wait(void) noexcept_ndebug;
 
+    /** @brief Clear every node link (node are still valid) */
+    void clearLinks(void) noexcept;
+
     /** @brief Clear the graph children */
     void clear(void) noexcept_destructible(Node);
 
-public: // Reserved for internal uses
+    /** @brief Get the number of owned nodes */
+    [[nodiscard]] std::size_t size(void) const noexcept { return _data->children.size(); }
+
     /** @brief Begin / end iterators to iterate over children nodes */
-    [[nodiscard]] auto begin(void) noexcept { return _data->children.begin(); }
-    [[nodiscard]] auto begin(void) const noexcept { return _data->children.begin(); }
-    [[nodiscard]] auto end(void) noexcept { return _data->children.end(); }
-    [[nodiscard]] auto end(void) const noexcept { return _data->children.end(); }
+    [[nodiscard]] Iterator begin(void) noexcept { return _data->children.begin(); }
+    [[nodiscard]] Iterator begin(void) const noexcept { return _data->children.begin(); }
+    [[nodiscard]] ConstIterator end(void) noexcept { return _data->children.end(); }
+    [[nodiscard]] ConstIterator end(void) const noexcept { return _data->children.end(); }
 
 private:
     DataPtr _data {};

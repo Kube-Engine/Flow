@@ -23,6 +23,14 @@ void Flow::Graph::wait(void) noexcept_ndebug
         std::this_thread::yield();
 }
 
+void Flow::Graph::clearLinks(void) noexcept
+{
+    for (auto &child : *this) {
+        child->linkedFrom.clear();
+        child->linkedTo.clear();
+    }
+}
+
 void Flow::Graph::clear(void) noexcept_destructible(Node)
 {
     wait();

@@ -24,7 +24,7 @@ namespace kF::Flow
     using DynamicFunc = std::function<void(int)>;
 
     /** @brief Switch functor */
-    using SwitchFunc = std::function<int(void)>;
+    using SwitchFunc = std::function<std::size_t(void)>;
 
     /** @brief Notify functor to be called on the event thread */
     using NotifyFunc = std::function<void(void)>;
@@ -39,7 +39,6 @@ namespace kF::Flow
 /** @brief A node is a POD structure containing all data of a scheduled task in a graph */
 struct KF_ALIGN_CACHELINE kF::Flow::Node
 {
-
     /** @brief Different types of nodes */
     enum class Type : std::size_t {
         Static = 0ul,
@@ -56,8 +55,9 @@ struct KF_ALIGN_CACHELINE kF::Flow::Node
 
     // Cacheline 2, rarely used members and frequently used atomic counter
     NotifyFunc notifyFunc {}; // Notify functor
-    std::atomic<std::size_t> joined { 0 }; // Joining
     Core::FlatString name; // Node name
+    std::atomic<std::size_t> joined { 0 }; // Joining
+    std::atomic<bool> bypass { 0 }; // Bypass the node as if it was executed if true
 
     /** @brief Construct a node with a work functor */
     template<typename Work>

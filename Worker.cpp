@@ -43,20 +43,26 @@ void Flow::Worker::work(Task &task) noexcept
     try {
         switch (task.type()) {
         case Node::Type::Static:
-            std::get<static_cast<std::size_t>(Node::Type::Static)>(node->workData)();
+            if (!task.bypass()) [[likely]]
+                std::get<static_cast<std::size_t>(Node::Type::Static)>(node->workData)();
             for (Node * const link : node->linkedTo)
                 scheduleNode(parent, link);
             node->root->childJoined();
             break;
         case Node::Type::Dynamic:
-            std::get<static_cast<std::size_t>(Node::Type::Dynamic)>(node->workData)(42);
+            if (!node->bypass.load()) [[likely]] {
+                // auto &dynamic = std::get<static_cast<std::size_t>(Node::Type::Dynamic)>(node->workData);
+                // dynamic.func(dynamic.graph);
+            }
             node->root->childJoined();
             break;
         case Node::Type::Switch:
         {
+            kFAssert(!node->bypass.load(),
+                throw std::logic_error("A branch task can't be bypassed"));
             const auto index = std::get<static_cast<std::size_t>(Node::Type::Switch)>(node->workData)();
             const auto count = node->linkedTo.size();
-            kFAssert(index >= 0 && index < count,
+            kFAssert(index >= 0ul && index < count,
                 throw std::logic_error("Invalid switch task return index"));
             scheduleNode(parent, node->linkedTo[index]);
             node->root->childrenJoined(count);
@@ -65,12 +71,14 @@ void Flow::Worker::work(Task &task) noexcept
         case Node::Type::Graph:
         {
             const auto graph = std::get<static_cast<std::size_t>(Node::Type::Graph)>(node->workData);
-            parent->schedule(*graph);
-            while (graph->running() && state() == State::Running) {
-                if (Task task; _queue.pop(task) || _cache.parent->steal(task))
-                    work(task);
-                else
-                    std::this_thread::yield();
+            if (!node->bypass.load()) [[likely]] {
+                parent->schedule(*graph);
+                while (graph->running() && state() == State::Running) {
+                    if (Task task; _queue.pop(task) || _cache.parent->steal(task))
+                        work(task);
+                    else
+                        std::this_thread::yield();
+                }
             }
             for (const auto link : node->linkedTo)
                 scheduleNode(parent, link);
