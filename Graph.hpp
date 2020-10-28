@@ -5,15 +5,20 @@
 
 #pragma once
 
+#include <thread>
 #include <memory>
+#include <memory_resource>
 
 #include <Kube/Core/Assert.hpp>
 
+#include <Kube/Core/FlatVector.hpp>
+
+#include "NodeType.hpp"
 #include "Task.hpp"
 
 namespace kF::Flow
 {
-    class NodeInstance;
+    struct NodeInstance;
     class Graph;
 }
 
@@ -24,7 +29,8 @@ public:
     struct KF_ALIGN_CACHELINE Data
     {
         std::vector<NodeInstance> children; // Children instances
-        std::atomic<std::size_t> joined { 0 }; // Number of joined parent
+        std::atomic<std::size_t> sharedCount { 1 }; // Number of shared graph instances
+        std::atomic<std::size_t> joined { 0 }; // Number of joined nodes
         std::atomic<bool> repeat { false }; // True if the graph should repeat indefinitly
         std::atomic<bool> running { false }; // True if the graph is already processing
     };
@@ -40,25 +46,31 @@ public:
     Graph(void) noexcept = default;
 
     /** @brief Copy constructor */
-    Graph(const Graph &other) noexcept = default;
+    Graph(const Graph &other) noexcept { acquire(other); }
 
     /** @brief Move constructor */
-    Graph(Graph &&other) noexcept = default;
+    Graph(Graph &&other) noexcept { swap(other); };
 
     /** @brief Destructor */
-    ~Graph(void) noexcept_destructible(Data);
+    ~Graph(void) noexcept_destructible(Data) { release(); }
 
     /** @brief Copy assignment */
-    Graph &operator=(const Graph &other) noexcept_copy_constructible(DataPtr) = default;
+    Graph &operator=(const Graph &other) noexcept { acquire(other); return *this; }
 
     /** @brief Move assignment */
-    Graph &operator=(Graph &&other) noexcept_move_constructible(DataPtr) = default;
+    Graph &operator=(Graph &&other) noexcept { swap(other); return *this; }
 
     /** @brief Fast check */
-    operator bool(void) const noexcept { return _data.operator bool(); }
+    operator bool(void) const noexcept { return _data != nullptr; }
 
     /** @brief Swap two graph */
-    void swap(Graph &other) noexcept { _data.swap(other._data); }
+    void swap(Graph &other) noexcept { std::swap(_data, other._data); }
+
+    /** @brief Acquire a reference to another graph */
+    void acquire(const Graph &other) noexcept;
+
+    /** @brief Release the instance */
+    void release(void) noexcept_destructible(Data);
 
     /** @brief Construct an instance if not already done */
     void construct(void) noexcept;
@@ -89,7 +101,7 @@ public:
     void clearLinks(void) noexcept;
 
     /** @brief Clear the graph children */
-    void clear(void) noexcept_destructible(Node);
+    void clear(void);
 
     /** @brief Get the number of owned nodes */
     [[nodiscard]] std::size_t size(void) const noexcept { return _data->children.size(); }
@@ -101,7 +113,11 @@ public:
     [[nodiscard]] ConstIterator end(void) const noexcept { return _data->children.end(); }
 
 private:
-    DataPtr _data {};
+    Data *_data { nullptr };
+
+    inline static std::pmr::synchronized_pool_resource _Pool {};
 };
 
+#include "Node.hpp" // Include the node to compile Task.ipp and Graph.ipp
+#include "Task.ipp"
 #include "Graph.ipp"

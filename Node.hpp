@@ -5,59 +5,57 @@
 
 #pragma once
 
+// This header must no be directly included, include 'Graph' instead
+
 #include <memory_resource>
 #include <variant>
 
 #include <Kube/Core/FlatVector.hpp>
 #include <Kube/Core/FlatString.hpp>
 
+#include "NodeType.hpp"
+
 namespace kF::Flow
 {
     struct Node;
     struct NodeInstance;
-    struct Graph;
 
-    /** @brief Static functor */
-    using StaticFunc = std::function<void(void)>;
+    class Graph;
 
-    /** @brief Dynamic functor */
-    using DynamicFunc = std::function<void(int)>;
+    /** @brief Static node are used to execute independent jobs */
+    using StaticNode = StaticFunc;
 
-    /** @brief Switch functor */
-    using SwitchFunc = std::function<std::size_t(void)>;
+    /** @brief Dynamic node holds dynamic functor and a graph */
+    struct DynamicNode
+    {
+        DynamicFunc func;
+        Graph graph;
+    };
 
-    /** @brief Notify functor to be called on the event thread */
-    using NotifyFunc = std::function<void(void)>;
+    /** @brief Switch node is used to create branches */
+    using SwitchNode = SwitchFunc;
 
-    /** @brief Variant holding work struct */
-    using WorkData = std::variant<StaticFunc, DynamicFunc, SwitchFunc, Graph *>;
-
-    /** @brief Empty work placeholder */
-    constexpr auto EmptyWork = []{};
+    /** @brief Graph node is used to construct nested graphs */
+    using GraphNode = Graph;
 }
 
 /** @brief A node is a POD structure containing all data of a scheduled task in a graph */
-struct KF_ALIGN_CACHELINE kF::Flow::Node
+struct KF_ALIGN_CACHELINE2 kF::Flow::Node
 {
-    /** @brief Different types of nodes */
-    enum class Type : std::size_t {
-        Static = 0ul,
-        Dynamic,
-        Switch,
-        Graph
-    };
+    /** @brief Variant holding work struct */
+    using WorkData = std::variant<StaticNode, DynamicNode, SwitchNode, GraphNode>;
 
     // Cacheline 1, frequently used members
     WorkData workData {}; // Work data variant
     Core::FlatVector<Node *> linkedTo {}; // List of forward tasks
     Core::FlatVector<Node *> linkedFrom {}; // List of children
-    Graph *root { nullptr };
 
     // Cacheline 2, rarely used members and frequently used atomic counter
     NotifyFunc notifyFunc {}; // Notify functor
     Core::FlatString name; // Node name
-    std::atomic<std::size_t> joined { 0 }; // Joining
-    std::atomic<bool> bypass { 0 }; // Bypass the node as if it was executed if true
+    std::atomic<std::uint32_t> joined { 0 }; // Joining
+    alignas(4) std::atomic<bool> bypass { 0 }; // Bypass the node as if it was executed if true
+    Graph *root { nullptr };
 
     /** @brief Construct a node with a work functor */
     template<typename Work>
@@ -86,19 +84,25 @@ struct KF_ALIGN_CACHELINE kF::Flow::Node
     template<typename Work>
     inline static auto ForwardWorkData(Work &&work)
     {
-        if constexpr (!std::is_same_v<DynamicFunc, Work> && std::is_constructible_v<DynamicFunc, Work>)
-            return DynamicFunc(std::forward<Work>(work));
-        else if constexpr (!std::is_same_v<SwitchFunc, Work> && std::is_constructible_v<SwitchFunc, Work>)
-            return SwitchFunc(std::forward<Work>(work));
-        else if constexpr (!std::is_same_v<StaticFunc, Work> && std::is_constructible_v<StaticFunc, Work>)
-            return StaticFunc(std::forward<Work>(work));
-        else if constexpr (std::is_same_v<Graph &, Work>)
-            return &work;
-        else
+        // Special rule for the dynamic node which can't specify its graph
+        if constexpr (std::is_same_v<DynamicFunc, Work> || std::is_constructible_v<DynamicFunc, Work>) {
+            return DynamicNode {
+                func: std::forward<Work>(work),
+                graph: Graph()
+            };
+        // If we can't directly initialize a SwitchNode but we can convert it
+        } else if constexpr (!std::is_same_v<SwitchNode, Work> && std::is_constructible_v<SwitchNode, Work>) {
+            return SwitchNode { std::forward<Work>(work) };
+        // If we can't directly initialize a StaticNode but we can convert it
+        } else if constexpr (!std::is_same_v<StaticNode, Work> && std::is_constructible_v<StaticNode, Work>) {
+            return StaticNode { std::forward<Work>(work) };
+        // Else, use default variant constructor
+        } else
             return work;
     }
 };
 
+static_assert(alignof(kF::Flow::Node) == kF::Core::Utils::CacheLineSize * 2, "Graph node must be aligned over 2 cachelines");
 static_assert(sizeof(kF::Flow::Node) == kF::Core::Utils::CacheLineSize * 2, "Graph node must occupy 2 cachelines");
 
 class kF::Flow::NodeInstance
@@ -129,8 +133,8 @@ public:
     void swap(NodeInstance &other) noexcept { std::swap(_node, other._node); }
 
     /** @brief Access operator */
-    Node *operator->(void) noexcept { return _node; }
-    const Node *operator->(void) const noexcept { return _node; }
+    [[nodiscard]] Node *operator->(void) noexcept { return _node; }
+    [[nodiscard]] const Node *operator->(void) const noexcept { return _node; }
 
 private:
     Node *_node { nullptr };
@@ -138,7 +142,7 @@ private:
     inline static std::pmr::synchronized_pool_resource _Pool {};
 
     template<typename ...Args>
-    inline static Node *Allocate(Args &&...args)
+    [[nodiscard]] inline static Node *Allocate(Args &&...args)
         { return new (_Pool.allocate(sizeof(Node), alignof(Node))) Node(std::forward<Args>(args)...); }
 
     inline static void Deallocate(Node *node) noexcept_destructible(Node)

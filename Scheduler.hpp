@@ -71,3 +71,4 @@ private:
 };
 
 #include "Scheduler.ipp"
+#include "Worker.ipp"

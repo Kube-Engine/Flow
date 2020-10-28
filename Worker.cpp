@@ -18,7 +18,7 @@ Flow::Worker::Worker(Scheduler * const parent, const std::size_t queueSize)
 {
 }
 
-void Flow::Worker::run(void) noexcept
+void Flow::Worker::run(void)
 {
     while (state() == State::Running) {
         if (Task task; _queue.pop(task) || _cache.parent->steal(task))
@@ -29,69 +29,29 @@ void Flow::Worker::run(void) noexcept
     _state = State::Stopped;
 }
 
-void Flow::Worker::work(Task &task) noexcept
+void Flow::Worker::work(Task &task)
 {
-    constexpr auto scheduleNode = [](Scheduler * const parent, Node * const link) {
-        if (const auto count = link->linkedFrom.size(); count && count == ++link->joined) {
-            link->joined = 0;
-            parent->schedule(link);
-        }
-    };
-    const auto parent = _cache.parent;
-    const auto node = task.node();
-
     try {
         switch (task.type()) {
-        case Node::Type::Static:
-            if (!task.bypass()) [[likely]]
-                std::get<static_cast<std::size_t>(Node::Type::Static)>(node->workData)();
-            for (Node * const link : node->linkedTo)
-                scheduleNode(parent, link);
-            node->root->childJoined();
+        case NodeType::Static:
+            dispatchStaticNode(task.node());
             break;
-        case Node::Type::Dynamic:
-            if (!node->bypass.load()) [[likely]] {
-                // auto &dynamic = std::get<static_cast<std::size_t>(Node::Type::Dynamic)>(node->workData);
-                // dynamic.func(dynamic.graph);
-            }
-            node->root->childJoined();
+        case NodeType::Dynamic:
+            dispatchDynamicNode(task.node());
             break;
-        case Node::Type::Switch:
-        {
-            kFAssert(!node->bypass.load(),
-                throw std::logic_error("A branch task can't be bypassed"));
-            const auto index = std::get<static_cast<std::size_t>(Node::Type::Switch)>(node->workData)();
-            const auto count = node->linkedTo.size();
-            kFAssert(index >= 0ul && index < count,
-                throw std::logic_error("Invalid switch task return index"));
-            scheduleNode(parent, node->linkedTo[index]);
-            node->root->childrenJoined(count);
+        case NodeType::Switch:
+            dispatchSwitchNode(task.node());
             break;
-        }
-        case Node::Type::Graph:
-        {
-            const auto graph = std::get<static_cast<std::size_t>(Node::Type::Graph)>(node->workData);
-            if (!node->bypass.load()) [[likely]] {
-                parent->schedule(*graph);
-                while (graph->running() && state() == State::Running) {
-                    if (Task task; _queue.pop(task) || _cache.parent->steal(task))
-                        work(task);
-                    else
-                        std::this_thread::yield();
-                }
-            }
-            for (const auto link : node->linkedTo)
-                scheduleNode(parent, link);
-            node->root->childJoined();
+        case NodeType::Graph:
+            dispatchGraphNode(task.node());
             break;
-        }
         default:
             throw std::logic_error("Flow::Worker::Work: Undefined node");
         }
-        if (!node->notifyFunc) [[likely]]
+        if (!task.hasNotification()) [[likely]]
             return;
         // If the task has notification, loop until parent scheduler receive it
-        while (!parent->notify(task) && state() == State::Running) {
+        while (!_cache.parent->notify(task) && state() == State::Running) {
             if (Task task; _queue.pop(task) || _cache.parent->steal(task))
                 work(task);
             else

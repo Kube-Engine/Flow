@@ -27,3 +27,65 @@ inline void kF::Flow::Worker::join(void) noexcept
     if (_cache.thd.joinable())
         _cache.thd.join();
 }
+
+inline void kF::Flow::Worker::scheduleNode(Node * const node)
+{
+    if (const auto count = node->linkedFrom.size(); count && count == ++node->joined) {
+        node->joined = 0;
+        _cache.parent->schedule(node);
+    }
+};
+
+inline void kF::Flow::Worker::blockingGraphSchedule(Graph &graph)
+{
+    _cache.parent->schedule(graph);
+    while (graph.running() && state() == State::Running) {
+        if (Task task; _queue.pop(task) || _cache.parent->steal(task))
+            work(task);
+        else
+            std::this_thread::yield();
+    }
+}
+
+inline void kF::Flow::Worker::dispatchStaticNode(Node * const node)
+{
+    if (!node->bypass.load()) [[likely]]
+        std::get<static_cast<std::size_t>(NodeType::Static)>(node->workData)();
+    for (Node * const link : node->linkedTo)
+        scheduleNode(link);
+    node->root->childJoined();
+};
+
+inline void kF::Flow::Worker::dispatchDynamicNode(Node * const node)
+{
+    if (!node->bypass.load()) [[likely]] {
+        auto &dynamic = std::get<static_cast<std::size_t>(NodeType::Dynamic)>(node->workData);
+        dynamic.func(dynamic.graph);
+        blockingGraphSchedule(dynamic.graph);
+    }
+    node->root->childJoined();
+}
+
+inline void kF::Flow::Worker::dispatchSwitchNode(Node * const node)
+{
+    const auto index = std::get<static_cast<std::size_t>(NodeType::Switch)>(node->workData)();
+    const auto count = node->linkedTo.size();
+
+    kFAssert(!node->bypass.load(),
+        throw std::logic_error("A branch task can't be bypassed"));
+    kFAssert(index >= 0ul && index < count,
+        throw std::logic_error("Invalid switch task return index"));
+    scheduleNode(node->linkedTo[index]);
+    node->root->childrenJoined(count);
+};
+
+inline void kF::Flow::Worker::dispatchGraphNode(Node * const node)
+{
+    if (!node->bypass.load()) [[likely]] {
+        auto &graph = std::get<static_cast<std::size_t>(NodeType::Graph)>(node->workData);
+        blockingGraphSchedule(graph);
+    }
+    for (const auto link : node->linkedTo)
+        scheduleNode(link);
+    node->root->childJoined();
+};

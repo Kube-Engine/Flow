@@ -176,3 +176,28 @@ TEST(Scheduler, GraphTask)
     scheduler.processNotifications();
     ASSERT_EQ(trigger, 9);
 }
+
+TEST(Scheduler, DynamicTask)
+{
+    Flow::Scheduler scheduler;
+    Flow::Graph graph;
+    int trigger = 0;
+    bool clear = false;
+
+    graph.emplace([&trigger, &clear](Flow::Graph &sub) {
+        if (clear)
+            sub.clear();
+        sub.emplace([&trigger] { ++trigger; });
+    });
+
+    scheduler.schedule(graph);
+    graph.wait();
+    ASSERT_EQ(trigger, 1);
+    scheduler.schedule(graph);
+    graph.wait();
+    ASSERT_EQ(trigger, 3);
+    clear = true;
+    scheduler.schedule(graph);
+    graph.wait();
+    ASSERT_EQ(trigger, 4);
+}

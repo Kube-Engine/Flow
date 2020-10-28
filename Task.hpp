@@ -5,10 +5,14 @@
 
 #pragma once
 
-#include "Node.hpp"
+// This header must no be directly included, include 'Graph' instead
+
+#include "NodeType.hpp"
 
 namespace kF::Flow
 {
+    struct Node;
+    class Graph;
     class Task;
 }
 
@@ -49,32 +53,32 @@ public:
     [[nodiscard]] const Node *node(void) const noexcept { return _node; }
 
     /** @brief Retreive the type of the task */
-    [[nodiscard]] Node::Type type(void) const noexcept { return static_cast<Node::Type>(_node->workData.index()); }
+    [[nodiscard]] NodeType type(void) const noexcept;
 
     /** @brief Set the work event */
     template<typename Work>
-    void setWork(Work &&work) noexcept { _node->workData = Node::ForwardWorkData(std::forward<Work>(work)); }
+    void setWork(Work &&work) noexcept;
 
     /** @brief Check if the Task has a notification event */
-    [[nodiscard]] bool hasNotification(void) const noexcept { return _node->notifyFunc.operator bool(); }
+    [[nodiscard]] bool hasNotification(void) const noexcept;
 
     /** @brief Execute the notification event */
-    void notify(void) { _node->notifyFunc(); }
+    void notify(void);
 
     /** @brief Set the notification event */
-    void setNotify(NotifyFunc &&notifyFunc) noexcept { _node->notifyFunc = notifyFunc; }
+    void setNotify(NotifyFunc &&notifyFunc) noexcept;
 
     /** @brief Get root graph */
-    [[nodiscard]] Graph *root(void) noexcept { return _node->root; }
-    [[nodiscard]] const Graph *root(void) const noexcept { return _node->root; }
+    [[nodiscard]] Graph *root(void) noexcept;
+    [[nodiscard]] const Graph *root(void) const noexcept;
 
     /** @brief Get / Set the name property */
-    [[nodiscard]] std::string_view name(void) const noexcept { return _node->name.toStdView(); }
-    void setName(const std::string_view &name) noexcept { _node->name = name; }
+    [[nodiscard]] std::string_view name(void) const noexcept;
+    void setName(const std::string_view &name) noexcept;
 
     /** @brief Get / Set the name property */
-    [[nodiscard]] bool bypass(void) const noexcept { return _node->bypass.load(); }
-    void setBypass(const bool &bypass) noexcept { _node->bypass.store(bypass); }
+    [[nodiscard]] bool bypass(void) const noexcept;
+    void setBypass(const bool &bypass) noexcept;
 
     /** @brief Add a task linked to this instance */
     Task &precede(Task &task) noexcept;
@@ -85,5 +89,3 @@ public:
 private:
     Node *_node { nullptr };
 };
-
-#include "Task.ipp"

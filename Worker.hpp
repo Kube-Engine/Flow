@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <thread>
+// This header must no be directly included, include 'Scheduler' instead
 
 #include <Kube/Core/MPMCQueue.hpp>
 
@@ -66,13 +66,30 @@ private:
     Core::MPMCQueue<Task> _queue;
 
     /** @brief Busy loop */
-    void run(void) noexcept;
+    void run(void);
 
     /** @brief Execute a task */
-    void work(Task &task) noexcept;
+    void work(Task &task);
+
+private:
+    /** @brief Work untile given graph finished */
+    void blockingGraphSchedule(Graph &graph);
+
+    /** @brief Tries to schedule a single node */
+    void scheduleNode(Node * const node);
+
+    /** @brief Helper used to process a Static node */
+    void dispatchStaticNode(Node * const node);
+
+    /** @brief Helper used to process a Dynamic node */
+    void dispatchDynamicNode(Node * const node);
+
+    /** @brief Helper used to process a Switch node */
+    void dispatchSwitchNode(Node * const node);
+
+    /** @brief Helper used to process a Graph node */
+    void dispatchGraphNode(Node * const node);
 };
 
 static_assert(sizeof(kF::Flow::Worker) == 6 * kF::Core::Utils::CacheLineSize, "Worker is not padded correctly");
 static_assert(alignof(kF::Flow::Worker) == 2 * kF::Core::Utils::CacheLineSize, "Worker is not aligned correctly");
-
-#include "Worker.ipp"
