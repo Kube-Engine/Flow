@@ -40,7 +40,7 @@ namespace kF::Flow
 }
 
 /** @brief A node is a POD structure containing all data of a scheduled task in a graph */
-struct KF_ALIGN_CACHELINE2 kF::Flow::Node
+struct KF_ALIGN_DOUBLE_CACHELINE kF::Flow::Node
 {
     /** @brief Variant holding work struct */
     using WorkData = std::variant<StaticNode, DynamicNode, SwitchNode, GraphNode>;
@@ -102,8 +102,8 @@ struct KF_ALIGN_CACHELINE2 kF::Flow::Node
     }
 };
 
-static_assert(alignof(kF::Flow::Node) == kF::Core::Utils::CacheLineSize * 2, "Graph node must be aligned over 2 cachelines");
-static_assert(sizeof(kF::Flow::Node) == kF::Core::Utils::CacheLineSize * 2, "Graph node must occupy 2 cachelines");
+static_assert(alignof(kF::Flow::Node) == kF::Core::CacheLineSize * 2, "Graph node must be aligned over 2 cachelines");
+static_assert(sizeof(kF::Flow::Node) == kF::Core::CacheLineSize * 2, "Graph node must occupy 2 cachelines");
 
 class kF::Flow::NodeInstance
 {

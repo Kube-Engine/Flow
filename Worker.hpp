@@ -17,7 +17,7 @@ namespace kF::Flow
     class Scheduler;
 };
 
-class KF_ALIGN_CACHELINE2 kF::Flow::Worker
+class KF_ALIGN_DOUBLE_CACHELINE kF::Flow::Worker
 {
 public:
     /** @brief Current state of the worker */
@@ -91,5 +91,5 @@ private:
     void dispatchGraphNode(Node * const node);
 };
 
-static_assert(sizeof(kF::Flow::Worker) == 6 * kF::Core::Utils::CacheLineSize, "Worker is not padded correctly");
-static_assert(alignof(kF::Flow::Worker) == 2 * kF::Core::Utils::CacheLineSize, "Worker is not aligned correctly");
+static_assert(sizeof(kF::Flow::Worker) == 6 * kF::Core::CacheLineSize, "Worker is not padded correctly");
+static_assert(alignof(kF::Flow::Worker) == 2 * kF::Core::CacheLineSize, "Worker is not aligned correctly");

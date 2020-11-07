@@ -17,7 +17,7 @@ namespace kF::Flow
 };
 
 /** @brief Schedule graph of tasks using thread workers */
-class KF_ALIGN_CACHELINE2 kF::Flow::Scheduler
+class KF_ALIGN_DOUBLE_CACHELINE kF::Flow::Scheduler
 {
 public:
     /** @brief Use this variable to automatically detect hardware thread count */
