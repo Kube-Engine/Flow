@@ -26,7 +26,7 @@ class kF::Flow::Graph
 {
 public:
     /** @brief Data of the task graph */
-    struct KF_ALIGN_CACHELINE Data
+    struct alignas_cacheline Data
     {
         std::vector<NodeInstance> children; // Children instances
         std::atomic<std::size_t> sharedCount { 1 }; // Number of shared graph instances

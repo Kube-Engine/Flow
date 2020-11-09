@@ -17,7 +17,7 @@ namespace kF::Flow
 };
 
 /** @brief Schedule graph of tasks using thread workers */
-class KF_ALIGN_DOUBLE_CACHELINE kF::Flow::Scheduler
+class alignas_double_cacheline kF::Flow::Scheduler
 {
 public:
     /** @brief Use this variable to automatically detect hardware thread count */
@@ -65,8 +65,8 @@ private:
         Core::HeapArray<Worker> workers {};
     };
 
-    KF_ALIGN_CACHELINE Cache _cache {};
-    KF_ALIGN_CACHELINE std::atomic<std::size_t> _lastWorkerId { 0 };
+    alignas_cacheline Cache _cache {};
+    alignas_cacheline std::atomic<std::size_t> _lastWorkerId { 0 };
     Core::MPMCQueue<Task> _notifications;
 };
 

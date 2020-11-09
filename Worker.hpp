@@ -17,7 +17,7 @@ namespace kF::Flow
     class Scheduler;
 };
 
-class KF_ALIGN_DOUBLE_CACHELINE kF::Flow::Worker
+class alignas_double_cacheline kF::Flow::Worker
 {
 public:
     /** @brief Current state of the worker */
@@ -61,8 +61,8 @@ private:
         std::thread thd {};
     };
 
-    KF_ALIGN_CACHELINE std::atomic<State> _state { State::Stopped };
-    KF_ALIGN_CACHELINE Cache _cache {};
+    alignas_cacheline std::atomic<State> _state { State::Stopped };
+    alignas_cacheline Cache _cache {};
     Core::MPMCQueue<Task> _queue;
 
     /** @brief Busy loop */
@@ -91,5 +91,5 @@ private:
     void dispatchGraphNode(Node * const node);
 };
 
-static_assert(sizeof(kF::Flow::Worker) == 6 * kF::Core::CacheLineSize, "Worker is not padded correctly");
-static_assert(alignof(kF::Flow::Worker) == 2 * kF::Core::CacheLineSize, "Worker is not aligned correctly");
+static_assert_sizeof(kF::Flow::Worker, 6 * kF::Core::CacheLineSize);
+static_assert_alignof_double_cacheline(kF::Flow::Worker);

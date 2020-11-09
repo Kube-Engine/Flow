@@ -13,8 +13,9 @@ inline void kF::Flow::Graph::acquire(const Graph &other) noexcept
 
 inline void kF::Flow::Graph::release(void) noexcept_destructible(Data)
 {
-    if (_data && --_data->sharedCount == 0u && running()) [[unlikely]] {
+    if (_data && --_data->sharedCount == 0u) [[unlikely]] {
         wait();
+        _data->~Data();
         _Pool.deallocate(_data, sizeof(Data), alignof(Data));
     }
 }
