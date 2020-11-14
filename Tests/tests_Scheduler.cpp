@@ -23,7 +23,6 @@ TEST(Scheduler, BasicTask)
     Flow::Graph graph;
     bool trigger = false;
 
-    auto task = graph.emplace([&trigger] {
         trigger = true;
     });
 
