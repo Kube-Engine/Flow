@@ -23,18 +23,9 @@ TEST(Scheduler, BasicTask)
     Flow::Graph graph;
     bool trigger = false;
 
-        trigger = true;
-    });
-
     scheduler.schedule(graph);
     graph.wait();
     ASSERT_EQ(trigger, true);
-
-    trigger = false;
-    task.setBypass(true);
-    scheduler.schedule(graph);
-    graph.wait();
-    ASSERT_EQ(trigger, false);
 }
 
 TEST(Scheduler, SequenceTask)
