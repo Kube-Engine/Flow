@@ -23,6 +23,7 @@ TEST(Scheduler, BasicTask)
     Flow::Graph graph;
     bool trigger = false;
 
+    graph.emplace([&trigger] { trigger = true; });
     scheduler.schedule(graph);
     graph.wait();
     ASSERT_EQ(trigger, true);
