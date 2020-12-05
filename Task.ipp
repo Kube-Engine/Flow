@@ -27,7 +27,7 @@ inline void kF::Flow::Task::notify(void)
 
 inline void kF::Flow::Task::setNotify(NotifyFunc &&notifyFunc) noexcept
 {
-    _node->notifyFunc = notifyFunc;
+    _node->notifyFunc = std::move(notifyFunc);
 }
 
 inline kF::Flow::Graph *kF::Flow::Task::root(void) noexcept
