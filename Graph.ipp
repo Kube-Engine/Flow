@@ -11,7 +11,7 @@ inline void kF::Flow::Graph::acquire(const Graph &other) noexcept
     }
 }
 
-inline void kF::Flow::Graph::release(void) noexcept_destructible(Data)
+inline void kF::Flow::Graph::release(void)
 {
     if (_data && --_data->sharedCount == 0u) [[unlikely]] {
         wait();
@@ -26,27 +26,17 @@ inline void kF::Flow::Graph::construct(void) noexcept
         _data = new (_Pool.allocate(sizeof(Data), alignof(Data))) Data {};
 }
 
-inline void kF::Flow::Graph::childrenJoined(const std::size_t childrenJoined) noexcept
-{
-    if (const auto count = _data->children.size(); (_data->joined += childrenJoined) == count) {
-        _data->joined = 0;
-        _data->running = false;
-    }
-}
-
 template<typename ...Args>
 inline kF::Flow::Task kF::Flow::Graph::emplace(Args &&...args)
 {
     construct();
-    const auto node = _data->children.emplace_back(std::forward<Args>(args)...).node();
+    const auto node = _data->children.push(std::forward<Args>(args)...).node();
     node->root = this;
     return Task(node);
 }
 
 inline void kF::Flow::Graph::wait(void) noexcept_ndebug
 {
-    kFAssert(!running() || repeat() == false,
-        throw std::logic_error("Flow::Graph::wait: Waiting a repeating graph is unsafe"));
     while (running())
         std::this_thread::yield();
 }

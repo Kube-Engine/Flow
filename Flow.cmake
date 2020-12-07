@@ -10,6 +10,7 @@ set(KubeFlowSources
     ${KubeFlowDir}/Worker.cpp
     ${KubeFlowDir}/Graph.hpp
     ${KubeFlowDir}/Graph.ipp
+    ${KubeFlowDir}/Graph.cpp
     ${KubeFlowDir}/Task.hpp
     ${KubeFlowDir}/Task.ipp
     ${KubeFlowDir}/Node.hpp

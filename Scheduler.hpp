@@ -39,6 +39,7 @@ public:
     ~Scheduler(void);
 
     /** @brief Schedule a graph of tasks */
+    template<bool IsRepeating = false>
     void schedule(Graph &task);
 
     /** @brief Schedule a task */
