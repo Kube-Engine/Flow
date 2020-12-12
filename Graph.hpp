@@ -139,7 +139,7 @@ public:
 private:
     Data *_data { nullptr };
 
-    inline static std::pmr::synchronized_pool_resource _Pool {};
+    static inline std::pmr::synchronized_pool_resource _Pool {};
 };
 
 #include "Node.hpp" // Include the node to compile Task.ipp and Graph.ipp

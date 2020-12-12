@@ -82,7 +82,7 @@ struct alignas_double_cacheline kF::Flow::Node
 
     /** @brief Helper to return the good workdata type from templated one */
     template<typename Work>
-    inline static auto ForwardWorkData(Work &&work)
+    static inline auto ForwardWorkData(Work &&work)
     {
         // Special rule for the dynamic node which can't specify its graph
         if constexpr (std::is_same_v<DynamicFunc, Work> || std::is_constructible_v<DynamicFunc, Work>) {
@@ -138,12 +138,12 @@ public:
 private:
     Node *_node { nullptr };
 
-    inline static std::pmr::synchronized_pool_resource _Pool {};
+    static inline std::pmr::synchronized_pool_resource _Pool {};
 
     template<typename ...Args>
-    [[nodiscard]] inline static Node *Allocate(Args &&...args)
+    [[nodiscard]] static inline Node *Allocate(Args &&...args)
         { return new (_Pool.allocate(sizeof(Node), alignof(Node))) Node(std::forward<Args>(args)...); }
 
-    inline static void Deallocate(Node *node) noexcept_destructible(Node)
+    static inline void Deallocate(Node *node) noexcept_destructible(Node)
         { node->~Node(); return _Pool.deallocate(node, sizeof(Node), alignof(Node)); }
 };
