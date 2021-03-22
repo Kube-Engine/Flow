@@ -15,8 +15,17 @@ inline void kF::Flow::Worker::start(void)
 
 inline void kF::Flow::Worker::stop(void) noexcept
 {
-    auto currentState = state();
-    while (currentState == State::Running && !_state.compare_exchange_strong(currentState, State::Stopping));
+    if (auto currentState = state(); currentState == State::IDLE)
+        wakeUp(State::Stopping);
+    else if (currentState == State::Running) {
+        while (!_state.compare_exchange_strong(currentState, State::Stopping)) {
+            if (currentState == State::IDLE) {
+                wakeUp(State::Stopping);
+                break;
+            } else if (currentState != State::Running)
+                break;
+        }
+    }
 }
 
 inline void kF::Flow::Worker::join(void) noexcept
@@ -34,6 +43,12 @@ inline void kF::Flow::Worker::scheduleNode(Node * const node)
         node->joined = 0;
         _cache.parent->schedule(node);
     }
+}
+
+inline void kF::Flow::Worker::wakeUp(const State state) noexcept
+{
+    _state = state;
+    __cxx_atomic_notify_one(reinterpret_cast<State *>(&_state));
 }
 
 inline void kF::Flow::Worker::blockingGraphSchedule(Graph &graph)
@@ -68,15 +83,25 @@ inline std::uint32_t kF::Flow::Worker::dispatchDynamicNode(Node * const node)
 
 inline std::uint32_t kF::Flow::Worker::dispatchSwitchNode(Node * const node)
 {
-    const auto index = std::get<static_cast<std::size_t>(NodeType::Switch)>(node->workData)();
+    auto &switchTask = std::get<static_cast<std::size_t>(NodeType::Switch)>(node->workData);
+    const auto index = switchTask.func();
     const auto count = node->linkedTo.size();
+    std::size_t joinCount = 1u;
 
     kFAssert(!node->bypass.load(),
         throw std::logic_error("A branch task can't be bypassed"));
     kFAssert(index >= 0ul && index < count,
         throw std::logic_error("Invalid switch task return index"));
+    kFAssert(switchTask.joinCounts.size() == count,
+        throw std::logic_error("Invalid switch task preprocessing, expected " + std::to_string(count) + " join counts but have " + std::to_string(switchTask.joinCounts.size())));
     scheduleNode(node->linkedTo[index]);
-    return count;
+    for (std::size_t i = 0; i < count; ++i) {
+        if (i != index)
+            joinCount += switchTask.joinCounts[i];
+        else
+            continue;
+    }
+    return joinCount;
 }
 
 inline std::uint32_t kF::Flow::Worker::dispatchGraphNode(Node * const node)

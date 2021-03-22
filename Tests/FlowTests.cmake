@@ -14,6 +14,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 PUBLIC
     KubeFlow
     GTest::GTest GTest::Main
+    Threads::Threads
 )
 
 if(KF_COVERAGE)

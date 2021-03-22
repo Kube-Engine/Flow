@@ -21,6 +21,7 @@ add_library(${PROJECT_NAME} ${KubeFlowSources})
 target_link_libraries(${PROJECT_NAME}
 PUBLIC
     KubeCore
+    AtomicWait
 )
 
 if(${KF_TESTS})

@@ -9,6 +9,7 @@ template<bool IsRepeating>
 inline void kF::Flow::Scheduler::schedule(Graph &graph)
 {
     if constexpr (!IsRepeating) {
+        graph.preprocess();
         if (graph.running())
             throw std::logic_error("Flow::Scheduler::schedule: Can't schedule a graph if it is already running");
         graph.setRunning(true);
@@ -34,7 +35,11 @@ inline void kF::Flow::Scheduler::schedule(const Task task) noexcept
             if (_lastWorkerId.compare_exchange_weak(id, targetId, std::memory_order_relaxed)) [[likely]]
                 break;
         }
-        if (_cache.workers[targetId].push(task)) [[likely]]
+        auto &worker = _cache.workers[targetId];
+        if (worker.push(task)) {
+            if (worker.state() == Worker::State::IDLE)
+                worker.wakeUp(Worker::State::Running);
             break;
+        }
     }
 }

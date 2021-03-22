@@ -33,7 +33,11 @@ namespace kF::Flow
     };
 
     /** @brief Switch node is used to create branches */
-    using SwitchNode = SwitchFunc;
+    struct SwitchNode
+    {
+        SwitchFunc func;
+        Core::FlatVector<std::size_t> joinCounts {};
+    };
 
     /** @brief Graph node is used to construct nested graphs */
     using GraphNode = Graph;
@@ -42,6 +46,14 @@ namespace kF::Flow
 /** @brief A node is a POD structure containing all data of a scheduled task in a graph */
 struct alignas_double_cacheline kF::Flow::Node
 {
+    /** @brief Work variant type */
+    enum class WorkType {
+        Static = 0,
+        Dynamic,
+        Switch,
+        Graph
+    };
+
     /** @brief Variant holding work struct */
     using WorkData = std::variant<StaticNode, DynamicNode, SwitchNode, GraphNode>;
 
@@ -91,7 +103,7 @@ struct alignas_double_cacheline kF::Flow::Node
                 graph: Graph()
             };
         // If we can't directly initialize a SwitchNode but we can convert it
-        } else if constexpr (!std::is_same_v<SwitchNode, Work> && std::is_constructible_v<SwitchNode, Work>) {
+        } else if constexpr (std::is_same_v<SwitchFunc, Work> || std::is_constructible_v<SwitchFunc, Work>) {
             return SwitchNode { std::forward<Work>(work) };
         // If we can't directly initialize a StaticNode but we can convert it
         } else if constexpr (!std::is_same_v<StaticNode, Work> && std::is_constructible_v<StaticNode, Work>) {
