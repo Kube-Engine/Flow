@@ -6,7 +6,7 @@
 inline void kF::Flow::Graph::setRunning(const bool running) noexcept
 {
     _data->running.store(running, std::memory_order_seq_cst);
-    __cxx_atomic_notify_one(reinterpret_cast<bool *>(&_data->running));
+    __cxx_atomic_notify_all(reinterpret_cast<bool *>(&_data->running));
 }
 
 inline void kF::Flow::Graph::acquire(const Graph &other) noexcept

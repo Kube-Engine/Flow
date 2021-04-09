@@ -75,7 +75,7 @@ struct alignas_double_cacheline kF::Flow::Node
         : workData(ForwardWorkData(std::forward<Work>(work))) {}
 
     /** @brief Construct a node with a work functor and a name */
-    template<typename Work, typename Literal> requires std::constructible_from<decltype(Node::name), Literal>
+    template<typename Work, typename Literal> requires (std::constructible_from<decltype(Node::name), Literal> && !std::constructible_from<NotifyFunc, Literal>)
     Node(Work &&work, Literal &&nodeName) noexcept
         : workData(ForwardWorkData(std::forward<Work>(work))), name(std::forward<Literal>(nodeName)) {}
 
@@ -110,7 +110,7 @@ struct alignas_double_cacheline kF::Flow::Node
             return StaticNode { std::forward<Work>(work) };
         // Else, use default variant constructor
         } else
-            return work;
+            return std::forward<Work>(work);
     }
 };
 
