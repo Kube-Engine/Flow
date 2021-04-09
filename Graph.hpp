@@ -100,7 +100,7 @@ public:
 
 
     /** @brief Wait for the graph to be executed */
-    void wait(void) noexcept_ndebug;
+    void wait(void) noexcept;
 
 
     /** @brief Clear every node link (node are still valid) */
@@ -111,7 +111,7 @@ public:
 
 
     /** @brief Ensure that the graph is ready to be scheduled (called by the Scheduler on schedule) */
-    void preprocess(void);
+    void preprocess(void) noexcept;
 
 
     /** @brief Get the number of owned nodes */
@@ -126,7 +126,7 @@ public:
 public:
     /** @brief Set the running property
      *  Reserved for internal use ! */
-    void setRunning(const bool running) noexcept { _data->running.store(running, std::memory_order_seq_cst); }
+    void setRunning(const bool running) noexcept;
 
     /** @brief Get the joined property
      *  Reserved for internal use ! */
@@ -148,10 +148,10 @@ private:
 
 
     /** @brief Implementation of the preprocess algorithm */
-    void preprocessImpl(void);
+    void preprocessImpl(void) noexcept;
 
     /** @brief Count the numbr of ssubchildren of a node */
-    void countSubChildren(const Node &node, std::size_t &count);
+    void countSubChildren(const Node &node, std::size_t &count, Core::TinyVector<const Node *> &cache) noexcept;
 };
 
 #include "Node.hpp" // Include the node to compile Task.ipp and Graph.ipp

@@ -3,6 +3,12 @@
  * @ Description: Graph
  */
 
+inline void kF::Flow::Graph::setRunning(const bool running) noexcept
+{
+    _data->running.store(running, std::memory_order_seq_cst);
+    __cxx_atomic_notify_one(reinterpret_cast<bool *>(&_data->running));
+}
+
 inline void kF::Flow::Graph::acquire(const Graph &other) noexcept
 {
     if (other._data) [[likely]] {
@@ -36,12 +42,6 @@ inline kF::Flow::Task kF::Flow::Graph::emplace(Args &&...args)
     return Task(node);
 }
 
-inline void kF::Flow::Graph::wait(void) noexcept_ndebug
-{
-    while (running())
-        std::this_thread::yield();
-}
-
 inline void kF::Flow::Graph::clearLinks(void) noexcept
 {
     for (auto &child : *this) {
@@ -58,7 +58,7 @@ inline void kF::Flow::Graph::clear(void)
     }
 }
 
-inline void kF::Flow::Graph::preprocess(void)
+inline void kF::Flow::Graph::preprocess(void) noexcept
 {
     if (!_data->isPreprocessed)
         preprocessImpl();

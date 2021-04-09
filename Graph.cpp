@@ -7,6 +7,12 @@
 
 using namespace kF;
 
+void Flow::Graph::wait(void) noexcept
+{
+    if (running())
+        __cxx_atomic_wait(reinterpret_cast<bool *>(&_data->running), true, static_cast<int>(std::memory_order_relaxed));
+}
+
 void Flow::Graph::childrenJoined(const std::uint32_t childrenJoined) noexcept
 {
     if (const auto count = _data->children.size(); (_data->joined += childrenJoined) == count) {
@@ -20,8 +26,10 @@ void Flow::Graph::childrenJoined(const std::uint32_t childrenJoined) noexcept
     }
 }
 
-void Flow::Graph::preprocessImpl(void)
+void Flow::Graph::preprocessImpl(void) noexcept
 {
+    Core::TinyVector<const Node *> cache;
+
     for (auto &node : *this) {
         if (node->workData.index() != static_cast<std::size_t>(Node::WorkType::Switch))
             continue;
@@ -29,16 +37,21 @@ void Flow::Graph::preprocessImpl(void)
         switchTask.joinCounts.reserve(node->linkedTo.size());
         for (const auto childNode : node->linkedTo) {
             std::size_t count { 1u };
-            countSubChildren(*childNode, count);
+            cache.clear();
+            countSubChildren(*childNode, count, cache);
             switchTask.joinCounts.push(count);
         }
     }
     _data->isPreprocessed = true;
 }
 
-void Flow::Graph::countSubChildren(const Node &node, std::size_t &count)
+void Flow::Graph::countSubChildren(const Node &node, std::size_t &count, Core::TinyVector<const Node *> &cache) noexcept
 {
-    count += node.linkedTo.size();
-    for (const auto childNode : node.linkedTo)
-        countSubChildren(*childNode, count);
+    for (const auto childNode : node.linkedTo) {
+        if (cache.find(childNode) == cache.end()) {
+            ++count;
+            cache.push(childNode);
+            countSubChildren(*childNode, count, cache);
+        }
+    }
 }

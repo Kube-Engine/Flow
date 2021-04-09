@@ -20,11 +20,15 @@ Flow::Worker::Worker(Scheduler * const parent, const std::size_t queueSize)
 
 void Flow::Worker::run(void)
 {
-    while (state() == State::Running) {
-        if (Task task; _queue.pop(task) || _cache.parent->steal(task))
+    while (state() == State::Running) [[likely]] {
+        if (Task task; _queue.pop(task) || _cache.parent->steal(task)) [[likely]]
             work(task);
-        else
-            std::this_thread::yield();
+        else {
+            auto s = State::Running;
+            if (!_state.compare_exchange_weak(s, State::IDLE)) [[unlikely]]
+                continue;
+            __cxx_atomic_wait(reinterpret_cast<State *>(&_state), State::IDLE, static_cast<int>(std::memory_order_relaxed));
+        }
     }
     _state = State::Stopped;
 }
@@ -49,7 +53,7 @@ void Flow::Worker::work(Task &task)
         default:
             throw std::logic_error("Flow::Worker::Work: Undefined node");
         }
-        if (!task.hasNotification()) [[likely]] {
+        if (!task.hasNotification()) {
             task.node()->root->childrenJoined(joinCount);
             return;
         }

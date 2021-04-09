@@ -48,7 +48,7 @@ inline void kF::Flow::Worker::scheduleNode(Node * const node)
 inline void kF::Flow::Worker::wakeUp(const State state) noexcept
 {
     _state = state;
-    __cxx_atomic_notify_one(reinterpret_cast<State *>(&_state));
+    __cxx_atomic_notify_all(reinterpret_cast<State *>(&_state));
 }
 
 inline void kF::Flow::Worker::blockingGraphSchedule(Graph &graph)
